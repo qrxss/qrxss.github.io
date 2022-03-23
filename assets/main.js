@@ -1,143 +1,253 @@
-/* Credit and Thanks:
-Matrix - Particles.js;
-SliderJS - Ettrics;
-Fonts - Google Fonts
-*/
-
-
-window.onload = function () {
-  Particles.init({
-    selector: ".background"
-  });
-};
-var particles = Particles.init({
-  selector: ".background",
-  color: ["#03dac6", "#ff0266", "#000000"],
-  connectParticles: true,
-  responsive: [
-    {
-      breakpoint: 768,
-      options: {
-        color: ["#faebd7", "#03dac6", "#ff0266"],
-        maxParticles: 43,
-        connectParticles: false
+function StackerGame() {
+  
+  // Game constants
+  this.BOARD_WIDTH = 7;
+  this.BOARD_HEIGHT = 15;
+  this.LIMIT_3 = 2;
+  this.LIMIT_2 = 7;
+  this.MIN_SPEED = (6/64);
+  this.MAX_SPEED = (2/64);
+  this.ANIMATION_TIME = 1.5 * 60;
+  
+  // Initialize members
+  this.gameElement = document.getElementById('stacker-game');
+  this.gameBoard   = null;
+  
+  // Initialize board state
+  this.board = new Array(this.BOARD_HEIGHT);
+  for (i = 0; i < this.BOARD_HEIGHT; i++) {
+    this.board[i] = new Array(this.BOARD_WIDTH);
+    for (j = 0; j < this.BOARD_WIDTH; j++) {
+      this.board[i][j] = 0;
+    }
+  }
+  
+  // Game state variables
+  this.blocks = 3;
+  this.running = false;
+  this.level = 0;
+  this.pos = Math.floor(this.BOARD_WIDTH / 2) - Math.floor(this.blocks / 2);
+  this.left = true;
+  this.timer = 0;
+  this.atimer = 0;
+  
+  
+  
+  /**
+   * Build HTML elements
+   */
+  this.buildHTML = function() {
+    
+    // build table
+    var domTable = document.createElement('table');
+    for (i = 0; i < this.BOARD_HEIGHT; i++) {
+      var domTableRow = domTable.insertRow(i);
+      for (j = 0; j < this.BOARD_WIDTH; j++) {
+        domTableRow.insertCell(j);
       }
     }
-  ]
-});
-
-class NavigationPage {
-  constructor() {
-    this.currentId = null;
-    this.currentTab = null;
-    this.tabContainerHeight = 70;
-    this.lastScroll = 0;
-    let self = this;
-    $(".nav-tab").click(function () {
-      self.onTabClick(event, $(this));
-    });
-    $(window).scroll(() => {
-      this.onScroll();
-    });
-    $(window).resize(() => {
-      this.onResize();
-    });
-  }
-
-  onTabClick(event, element) {
-    event.preventDefault();
-    let scrollTop =
-      $(element.attr("href")).offset().top - this.tabContainerHeight + 1;
-    $("html, body").animate({ scrollTop: scrollTop }, 600);
-  }
-
-  onScroll() {
-    this.checkHeaderPosition();
-    this.findCurrentTabSelector();
-    this.lastScroll = $(window).scrollTop();
-  }
-
-  onResize() {
-    if (this.currentId) {
-      this.setSliderCss();
+    
+    // Add table to HTML
+    domTable.classList.add('stacker-board');
+    this.gameBoard = domTable;
+    this.gameElement.appendChild(this.gameBoard);
+  };
+  
+  
+  
+  /**
+   * Starts the game running
+   */
+  this.run = function() {
+    setInterval(function() {game.onStep()}, 1000/60);
+    window.addEventListener("keydown", function(e) {game.onKeyPress(e)});
+    this.gameBoard.addEventListener("touchstart", function(e) {game.onTouchStart(e)});
+  };
+  
+  
+  
+  /**
+   * Handles each step event
+   */
+  this.onStep = function() {
+    if (this.atimer > 0) {
+      this.atimer--;
     }
-  }
-
-  checkHeaderPosition() {
-    const headerHeight = 75;
-    if ($(window).scrollTop() > headerHeight) {
-      $(".header").addClass("header--scrolled");
-    } else {
-      $(".header").removeClass("header--scrolled");
-    }
-    let offset =
-      $(".nav").offset().top +
-      $(".nav").height() -
-      this.tabContainerHeight -
-      headerHeight;
-    if (
-      $(window).scrollTop() > this.lastScroll &&
-      $(window).scrollTop() > offset
-    ) {
-      $(".header").addClass("et-header--move-up");
-      $(".nav-container").removeClass("nav-container--top-first");
-      $(".nav-container").addClass("nav-container--top-second");
-    } else if (
-      $(window).scrollTop() < this.lastScroll &&
-      $(window).scrollTop() > offset
-    ) {
-      $(".header").removeClass("et-header--move-up");
-      $(".nav-container").removeClass("nav-container--top-second");
-      $(".et-hero-tabs-container").addClass(
-        "et-hero-tabs-container--top-first"
-      );
-    } else {
-      $(".header").removeClass("header--move-up");
-      $(".nav-container").removeClass("nav-container--top-first");
-      $(".nav-container").removeClass("nav-container--top-second");
-    }
-  }
-
-  findCurrentTabSelector(element) {
-    let newCurrentId;
-    let newCurrentTab;
-    let self = this;
-    $(".nav-tab").each(function () {
-      let id = $(this).attr("href");
-      let offsetTop = $(id).offset().top - self.tabContainerHeight;
-      let offsetBottom =
-        $(id).offset().top + $(id).height() - self.tabContainerHeight;
-      if (
-        $(window).scrollTop() > offsetTop &&
-        $(window).scrollTop() < offsetBottom
-      ) {
-        newCurrentId = id;
-        newCurrentTab = $(this);
+    
+    if (this.atimer == 0) {
+      
+      // Remove temporary (flashing) blocks
+      for (i = 0; i < this.BOARD_HEIGHT; i++) {
+        for (j = 0; j < this.BOARD_WIDTH; j++) {
+          if (this.board[i][j] == 2) {
+            this.board[i][j] = 0;
+          }
+        }
       }
-    });
-    if (this.currentId != newCurrentId || this.currentId === null) {
-      this.currentId = newCurrentId;
-      this.currentTab = newCurrentTab;
-      this.setSliderCss();
+      
+      if (this.blocks == 0) {
+        this.running = false;
+      }
+    }
+    
+    // Move blocks over
+    if (this.running && this.atimer == 0) {
+      if (this.timer <= 0) {
+        if (this.left) {
+          this.pos--;
+          if (this.pos + this.blocks - 1 == 0) {
+            this.left = false;
+          }
+        } else {
+          this.pos++;
+          if (this.pos == this.BOARD_WIDTH - 1) {
+            this.left = true;
+          }
+        }
+        this.timer = (this.MAX_SPEED + ((this.MIN_SPEED - this.MAX_SPEED) * (1 - (this.level / this.BOARD_HEIGHT)))) * 60;
+      } else {
+        this.timer--;
+      }
+    }
+    
+    // Redraw grid
+    for (i = 0; i < this.BOARD_HEIGHT; i++) {
+      for (j = 0; j < this.BOARD_WIDTH; j++) {
+        switch (this.board[i][j]) {
+          case 0:
+            this.gameBoard.rows[this.BOARD_HEIGHT - 1 - i].cells[j].className = "";
+            break;
+          case 1:
+            this.gameBoard.rows[this.BOARD_HEIGHT - 1 - i].cells[j].className = "filled";
+            break;
+          case 2:
+            this.gameBoard.rows[this.BOARD_HEIGHT - 1 - i].cells[j].className = (this.atimer > 0 && this.atimer % 30 < 15 ? "filled" : "");
+            break;
+        }
+      }
+    }
+    // Draw bouncing blocks
+    if (this.running && this.atimer == 0) {
+      for (j = this.pos; j < this.pos + this.blocks; j++) {
+        if (j >= 0 && j < this.BOARD_WIDTH) {
+          this.gameBoard.rows[this.BOARD_HEIGHT - 1 - this.level].cells[j].className = "filled";
+        }
+      }
     }
   }
+  
+  
+  
+  /**
+   * Handles keyboard press events
+   */
+  this.onKeyPress = function(e) {
+    var e = e || window.event;
+    
+    switch (e.keyCode) {
+      case 32:  // Space
+        this.onSpacePress();
+        e.preventDefault();
+        break;
+        
+      case 13:  // Enter/return
+        this.onEnterPress();
+        e.preventDefault();
+        break;
+    }
+  }
+  
+  
+  
+  /**
+   * Handles touch screen device touch
+   */
+  this.onTouchStart = function(e) {
+    if (this.running) {
+      this.onSpacePress();
+    } else {
+      this.onEnterPress();
+    }
+  }
+  
+  
+  
+  /**
+   * Handles spacebar presses
+   */
+  this.onSpacePress = function() {
+    if (!this.running) {
+      this.onEnterPress();
 
-  setSliderCss() {
-    let width = 0;
-    let left = 0;
-    if (this.currentTab) {
-      width = this.currentTab.css("width");
-      left = this.currentTab.offset().left;
+    } else if (this.atimer == 0) {
+    
+      // put blocks onto board
+      var iEnd = (this.pos + this.blocks);
+      for (i = this.pos; i < iEnd; i++) {
+        if (i >= 0 && i < this.BOARD_WIDTH) {
+          this.board[this.level][i] = 1;
+        } else {
+          this.blocks--;
+        }
+      }
+      
+      // Remove invalid blocks
+      if (this.level > 0) {
+        for (i = 0; i < this.BOARD_WIDTH; i++) {
+          if (this.board[this.level][i] == 1 && this.board[this.level-1][i] == 0) {
+            this.board[this.level][i] = 2;
+            this.blocks--;
+            this.atimer = this.ANIMATION_TIME;
+          }
+        }
+      }
+      
+      // Check hard limits
+      if (this.blocks >= 3 && this.level >= this.LIMIT_3) {
+        this.blocks = 2;
+      }
+      if (this.blocks >= 2 && this.level >= this.LIMIT_2) {
+        this.blocks = 1;
+      }
+      if (this.level == this.BOARD_HEIGHT - 1) {
+        this.running = false;
+      }
+      
+      this.level++;
+      this.pos = Math.floor(this.BOARD_WIDTH / 2);
     }
-    $(".nav-tab-slider").css("width", width);
-    $(".nav-tab-slider").css("left", left);
   }
+  
+  
+  
+  /**
+   * Handles enter/return presses
+   */
+  this.onEnterPress = function() {
+    
+    // Initialize board
+    for (i = 0; i < this.BOARD_HEIGHT; i++) {
+      for (j = 0; j < this.BOARD_WIDTH; j++) {
+        this.board[i][j] = 0;
+      }
+    }
+
+    // Reset everything else
+    this.level = 0;
+    this.blocks = 3;
+    this.pos = Math.floor(this.BOARD_WIDTH / 2) - Math.floor(this.blocks / 2);
+    this.left = true;
+    this.running = true;
+    this.atimer = 0;
+  }
+  
+  
 }
 
-new NavigationPage();
+game = null;
 
-/* Credit and Thanks:
-Matrix - Particles.js;
-SliderJS - Ettrics;
-Fonts - Google Fonts
-*/
+window.addEventListener("DOMContentLoaded", function(){
+  game = new StackerGame();
+  game.buildHTML();
+  game.run();
+});
